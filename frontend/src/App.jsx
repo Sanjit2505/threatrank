@@ -152,38 +152,43 @@ function App() {
     let timer = null;
 
     const connect = () => {
-      const host = window.location.hostname || '127.0.0.1';
-      // If deployed on Vercel without local server, ws connects to backend server if host is local
-      ws.current = new WebSocket(`ws://${host}:8000/ws`);
+      try {
+        const host = (window.location.hostname && window.location.hostname !== '') ? window.location.hostname : '127.0.0.1';
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        ws.current = new WebSocket(`${protocol}//${host}:8000/ws`);
 
-      ws.current.onopen = () => {
-        console.log("🟢 Connected to Live Python WebSocket Backend");
-        setIsConnected(true);
-      };
+        ws.current.onopen = () => {
+          console.log("🟢 Connected to Live Python WebSocket Backend");
+          setIsConnected(true);
+        };
 
-      ws.current.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (data.type === 'state_update') {
-            setIncidents(data.incidents || []);
-            setEngineers(data.engineers || []);
-            setActivities(data.activities || []);
-            setHistory(data.history || []);
+        ws.current.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.type === 'state_update') {
+              setIncidents(data.incidents || []);
+              setEngineers(data.engineers || []);
+              setActivities(data.activities || []);
+              setHistory(data.history || []);
+            }
+          } catch (e) {
+            console.error("Error parsing WebSocket message:", e);
           }
-        } catch (e) {
-          console.error("Error parsing WebSocket message:", e);
-        }
-      };
+        };
 
-      ws.current.onclose = () => {
-        setIsConnected(false);
-        timer = setTimeout(connect, 4000);
-      };
+        ws.current.onclose = () => {
+          setIsConnected(false);
+          timer = setTimeout(connect, 4000);
+        };
 
-      ws.current.onerror = () => {
+        ws.current.onerror = () => {
+          setIsConnected(false);
+          if (ws.current) ws.current.close();
+        };
+      } catch (err) {
+        console.warn("WebSocket connection bypassed (Standalone mode active):", err);
         setIsConnected(false);
-        if (ws.current) ws.current.close();
-      };
+      }
     };
 
     connect();
